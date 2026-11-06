@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react'
 import {games} from './config'
-import {ping} from './audio'
+import LivingArt from './LivingArt'
+import {ping,setTrack} from './audio'
 const loaded = new Map()
 export function sprite(name){if(!loaded.has(name)){const im=new Image();im.src='/assets/'+name+(name==='berry'?'.svg':'.webp');loaded.set(name,im)}return loaded.get(name)}
 function painted(ctx,name,x,y,w,h){const im=sprite(name);if(!im.naturalWidth)return
@@ -12,6 +13,8 @@ export default function Game({index,restart,home,next,saveShot}){
  const controls=useRef({left:false,right:false,target:null,tap:null})
  useEffect(()=>{
   const board=canvas.current,ctx=board.getContext('2d'),c=controls.current, W=1200,H=540
+  const calm=matchMedia('(prefers-reduced-motion: reduce)').matches
+  if(index===2&&phase==='playing')setTrack('beat',true)
   let facingLeft=false,previousX=600,lastPulse=-1
   let id,elapsed=0,last=0,points=0,spawn=0,cycle=0,judged=-1,items=[],bursts=[],px=index===0?240:600,py=H*.6,alive=true,flash=0
   function scoreHit(x,y){points++;setScore(points);ping(true);bursts.push({x,y,t:0});flash=.35;setFeedback(index===2?'PERFECT!':'+1')}
@@ -31,6 +34,18 @@ export default function Game({index,restart,home,next,saveShot}){
   function frame(now){const tick=last&&!document.hidden?Math.max(0,(now-last)/1000):0,dt=Math.min(tick,.12);last=now
    const live=phase==='playing'; if(live)elapsed+=tick
    ctx.clearRect(0,0,W,H)
+   const motion=calm?0:now/1000
+   if(!calm&&index!==2){
+    ctx.save()
+    for(let i=0;i<17;i++){
+     const x=index===0?W-((motion*(38+i%5*9)+i*113)%W):(i*101+12*Math.sin(motion+i))%W
+     const y=index===0?(i*89)%H:((motion*(14+i%3*6)+i*61)%H)
+     ctx.save();ctx.translate(x,y);ctx.globalAlpha=.26+.12*Math.sin(motion+i)
+     if(index===0){ctx.rotate(-.12);ctx.fillStyle='#fff2cd';ctx.fillRect(0,0,8+i%5*3,1.5)}
+     else{ctx.rotate(motion*.8+i);ctx.fillStyle=i%2?'#fff2c4':'#ff81b2';ctx.beginPath();ctx.ellipse(0,0,5,2.2,0,0,Math.PI*2);ctx.fill()}
+     ctx.restore()
+    }ctx.restore()
+   }
    if(index===0||index===1){
     const flight=index===0
     if(live){
@@ -42,7 +57,10 @@ export default function Game({index,restart,home,next,saveShot}){
       if(Math.abs(o.x-px)<(flight?64:76)&&Math.abs(o.y-py)<62){o.hit=true;scoreHit(o.x,o.y)}}
      items=items.filter(o=>!o.hit&&o.x>-40&&o.y<H+40)
     }
-    for(const o of items)painted(ctx,flight?'coin':'berry',o.x,o.y,56,56)
+    for(const o of items){
+     ctx.save();ctx.translate(o.x,o.y);ctx.rotate(Math.sin(motion*3+o.x*.01)*(flight?.10:.24))
+     painted(ctx,flight?'coin':'berry',0,0,56,56);ctx.restore()
+    }
     ctx.save()
     if(flight&&live){
      for(let i=1;i<7;i++){ctx.fillStyle=i%2?'#ffe48a':'#fb83c5';ctx.globalAlpha=(1-i/7)*.7;ctx.beginPath();ctx.arc(px-24-i*8,py+27+i*3+Math.sin(elapsed*8+i)*4,7-i*.7,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1
@@ -54,13 +72,20 @@ export default function Game({index,restart,home,next,saveShot}){
     ctx.restore()
    }else{
     const y=H*.57,tx=W*.3
+    ctx.save()
+    for(let bar=0;bar<45;bar++){
+     const h=calm?14:9+Math.abs(Math.sin(motion*3+bar*.8)*Math.cos(motion*2.6-bar*.15))*47
+     ctx.fillStyle=bar%3?'#7bf8df':'#ffdf7c';ctx.globalAlpha=.59;ctx.fillRect(152+bar*20,y-46-h,10,h)
+    }ctx.restore()
     const pulse=Math.floor((elapsed+1.65*.23)/1.65)
     if(live&&pulse>0&&pulse!==lastPulse){ping();lastPulse=pulse}
     ctx.fillStyle='rgba(24,9,50,.79)';ctx.beginPath();ctx.roundRect(120,y-40,960,80,40);ctx.fill()
     ctx.strokeStyle='#fff0be';ctx.lineWidth=3;ctx.stroke();ctx.strokeStyle='#65eedc';ctx.lineWidth=6;ctx.beginPath();ctx.arc(tx,y,35,0,Math.PI*2);ctx.stroke()
     for(let i=0;i<3;i++){const x=tx+(.77-(elapsed%1.65)/1.65+i)*720;if(x<1038&&x>150)painted(ctx,'coin',x,y,55,55)}
    }
-   for(const b of bursts){b.t+=dt;ctx.globalAlpha=Math.max(0,1-b.t*1.8);painted(ctx,'stars',b.x,b.y-b.t*100,85,85)}ctx.globalAlpha=1;bursts=bursts.filter(b=>b.t<.56)
+   for(const b of bursts){b.t+=dt;
+    if(!calm){ctx.save();ctx.translate(b.x,b.y);ctx.strokeStyle=['#e4c7ff','#fff1a0','#85ffec'][index];ctx.lineWidth=3
+     ctx.globalAlpha=Math.max(0,1-b.t*2);ctx.beginPath();ctx.arc(0,0,22+b.t*96,0,Math.PI*2);ctx.stroke();ctx.restore()}ctx.globalAlpha=Math.max(0,1-b.t*1.8);painted(ctx,'stars',b.x,b.y-b.t*100,85,85)}ctx.globalAlpha=1;bursts=bursts.filter(b=>b.t<.56)
    if(flash>0&&(flash-=dt)<=0)setFeedback('')
    if(live){setTime(Math.max(0,30-Math.floor(elapsed)))
     if(points>=5||elapsed>=30){saveShot(index,board);setPhase(points>=5?'won':'lost');alive=false}
@@ -72,7 +97,7 @@ export default function Game({index,restart,home,next,saveShot}){
  },[index,phase])
  function aim(e){const rect=canvas.current.getBoundingClientRect();controls.current.target={x:(e.clientX-rect.left)/rect.width*1200,y:(e.clientY-rect.top)/rect.height*540}}
  return <div className={'game-world '+game.id} style={{backgroundImage:'url(/assets/'+game.id+'.webp)'}}>
- <div className="play-heading"><button className="asset square" onClick={home} aria-label="게임 선택"><img src="/assets/back.webp" alt=""/></button><div><small>{game.english}</small><strong>{game.title}</strong></div></div>
+ <LivingArt name={game.id}/><div className="play-heading"><button className="asset square" onClick={home} aria-label="게임 선택"><img src="/assets/back.webp" alt=""/></button><div><small>{game.english}</small><strong>{game.title}</strong></div></div>
  <div className="hud"><span>★ {score} / 5</span><span>◷ {time}s</span></div>
  <canvas ref={canvas} width="1200" height="540" aria-label={game.action} onPointerMove={aim} onPointerDown={e=>{aim(e);controls.current.tap?.()}}/>
  {feedback&&phase==='playing'&&<b className="feedback">{feedback}</b>}

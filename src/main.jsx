@@ -2,9 +2,10 @@ import React,{useEffect,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import ClickSpark from './ClickSpark'
 import StarBorder from './StarBorder'
+import LivingArt from './LivingArt'
 import Game,{sprite} from './Game'
 import {games,product} from './config'
-import {unlock,ping,setVolume} from './audio'
+import {unlock,ping,setVolume,setTrack} from './audio'
 import './style.css'
 const scenes=['타이틀','게임 선택',...games.map(g=>g.title),'게임 소개']
 const names=['TITLE','ARCADE',...games.map(g=>g.english),'STORE']
@@ -55,23 +56,24 @@ function App(){
  ;['hero','flight','catch','beat','rocket','coin','girl-run','berry','stars','start-yellow','note','heart','more','girl-heart'].forEach(sprite)
  return()=>{clear();window.removeEventListener('keydown',key);document.removeEventListener('pointerdown',unlock);document.removeEventListener('keydown',unlock);document.removeEventListener('pointermove',advance);document.removeEventListener('pointerleave',leave);window.removeEventListener('blur',leave)}
  },[])
+ useEffect(()=>{setTrack(game?games[scene-2].id:'menu')},[scene])
  useEffect(()=>{setVolume('music',soundOn?music:0);setVolume('effects',soundOn?effects:0)},[music,effects,soundOn])
  function saveShot(i,canvas){const bg=sprite(games[i].id);if(!bg.naturalWidth)return;const out=document.createElement('canvas');out.width=600;out.height=270;const ctx=out.getContext('2d');ctx.drawImage(bg,0,0,600,270);ctx.drawImage(canvas,0,0,600,270);shots.current[i]=out.toDataURL('image/webp',.78)}
  const inc=n=>go((controls.current.to+n+6)%6)
  return <div className={'app '+(visual?'custom ':'')+(hidden?'clean':'')}><ClickSpark disabled={!visual} sparkColor={['#fff3ab','#ff80ca','#6be4d5']} ring sparkCount={6} sparkSize={5} sparkRadius={18} duration={270} shape="star" style={{display:'flex',flexDirection:'column'}}>
  <main className={'stage scene-'+scene}>
  <header><button className="arcade-brand" aria-label="타이틀로 이동" onClick={()=>go(0)}><img src="/assets/carton.svg" alt=""/><span>BANANA MILK<b>ARCADE</b></span></button><div className="wordmark"><i/> {product.title}</div></header>
- {scene===0&&<section key={'title'+rev} className="hero"><div className="twinkles">{[[18,38],[34,20],[66,23],[47,73],[80,14],[26,71]].map(([x,y],i)=><i key={x} style={{left:x+'%',top:y+'%',animationDelay:i*-.8+'s'}}>✦</i>)}</div><div className="hero-body"><div className="collection"><span/> MINI GAME COLLECTION <span/></div><Logo/><button className="asset hero-start" onClick={()=>go(1)}><img src={src('start-yellow')} alt="시작하기"/></button></div></section>}
+ {scene===0&&<section key={'title'+rev} className="hero"><LivingArt name="hero"/><div className="shooting" aria-hidden="true"/><div className="twinkles">{[[18,38],[34,20],[66,23],[47,73],[80,14],[26,71]].map(([x,y],i)=><i key={x} style={{left:x+'%',top:y+'%',animationDelay:i*-.8+'s'}}>✦</i>)}</div><div className="hero-body"><div className="collection"><span/> MINI GAME COLLECTION <span/></div><Logo/><button className="asset hero-start" onClick={()=>go(1)}><img src={src('start-yellow')} alt="시작하기"/></button></div></section>}
  {scene===1&&<section className="selection"><div className="collection"><span/> GAME SELECT <span/></div><h1>미니게임 선택</h1><div className="cards">{games.map((g,i)=><SceneCard key={g.id} game={g} index={i} go={go}/>)}</div></section>}
  {game&&<Game key={scene+'-'+rev} index={scene-2} restart={()=>go(scene,false)} home={()=>go(1)} next={()=>inc(1)} saveShot={saveShot}/>}
  {scene===5&&<Store shots={shots.current} go={go}/>}
- {transition&&<div className="wipe" key={transition.token}><div><small>{names[transition.target]}</small><strong>{scenes[transition.target]}</strong><span>✦</span></div></div>}
+ {transition&&<div className="wipe" data-to={transition.target} key={transition.token}><i className="transit-orbit" aria-hidden="true"/><i className="transit-stripes" aria-hidden="true"/><div><img className="transit-icon" src={src(["moon","stars","rocket","heart","note","treasure"][transition.target])} alt=""/><small>{names[transition.target]}</small><strong>{scenes[transition.target]}</strong></div></div>}
  </main>
  {!hidden&&<footer><div className="director-left"><button className={'director-toggle '+(expanded?'active':'')} onClick={()=>E(v=>!v)} aria-expanded={expanded}><Icon name="sliders"/> Director <Icon name="up" size={14}/></button><span className="divider"/><span className="scene-num">{String(scene+1).padStart(2,'0')} <em>/ 06</em></span><span className="current-label">{scenes[scene]}</span></div>
  <nav className="scene-nav" aria-label="장면 이동"><button onClick={()=>inc(-1)} aria-label="이전 장면"><Icon name="prev" size={15}/></button>{scenes.map((s,i)=><button key={s} className={'scene-dot '+(scene===i?'on':'')} title={s} aria-label={s} aria-current={scene===i?'step':undefined} onClick={()=>go(i)}><i/></button>)}<button onClick={()=>inc(1)} aria-label="다음 장면"><Icon name="next" size={15}/></button></nav>
  <div className="director-right"><button title="음향 켜기 또는 끄기" aria-label="음향 켜기 또는 끄기" aria-pressed={soundOn} onClick={()=>A(!soundOn)}><Icon name="volume"/><span>{soundOn?'Sound on':'Sound off'}</span></button><span className="divider"/><button title="전체화면" aria-label="전체화면" onClick={fullscreen}><Icon name="full"/></button></div>
  {expanded&&<aside className="panel"><div className="panel-title"><strong>Director</strong><button onClick={()=>E(false)} aria-label="닫기">×</button></div><label>장면 바로 이동<select value={scene} onChange={e=>go(+e.target.value)}>{scenes.map((s,i)=><option key={s} value={i}>{s}</option>)}</select></label><div className="panel-grid">{[['이전 장면','[',()=>inc(-1)],['다음 장면',']',()=>inc(1)],['로고 재생','L',()=>go(0,false)],['게임 선택','G',()=>go(1)],['현재 장면 재시작','R',()=>go(scene,false)],['전환 재생','T',()=>go(scene)],['판매 · 소개','S',()=>go(5)],['전체화면','⛶',fullscreen]].map(([l,k,fn])=><button key={l} onClick={fn}>{l}<kbd>{k}</kbd></button>)}</div><label>마우스 시각화<input type="checkbox" checked={visual} onChange={e=>V(e.target.checked)}/></label><label>배경음<input type="range" min="0" max="1" step=".01" value={music} onChange={e=>{A(true);M(+e.target.value)}}/></label><label>효과음<input type="range" min="0" max="1" step=".01" value={effects} onChange={e=>{A(true);F(+e.target.value)}}/></label><div className="hide-tip">메뉴 숨기기 · 표시 <kbd>1 → 2 → 3 → 4</kbd></div></aside>}</footer>}
  {notice&&!hidden&&<div className="notice">{notice}</div>}
- </ClickSpark><div className="cursor" ref={mouse} hidden={!visual}><svg width="22" height="27" viewBox="0 0 22 27"><path d="M1 1 19 12 11 14 14 22 10 24 6 16 1 21Z" stroke="#3e165c" strokeWidth="2" strokeLinejoin="round" fill="var(--cursor,#fff1a0)"/></svg></div></div>
+ </ClickSpark><div className="cursor" ref={mouse} hidden={!visual}><svg width="28" height="34" viewBox="0 0 22 27"><path d="M1 1 19 12 11 14 14 22 10 24 6 16 1 21Z" stroke="#3e165c" strokeWidth="2" strokeLinejoin="round" fill="var(--cursor,#fff1a0)"/></svg></div></div>
 }
 createRoot(document.getElementById('root')).render(<App/>)
