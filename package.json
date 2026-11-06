@@ -1,0 +1,16 @@
+{
+  "name": "banana-milk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && cp -R assets dist/"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "vite": "8.0.13"
+  }
+}
